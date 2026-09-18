@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Party Bill Payment Tracker</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#111827;font-family:Arial,sans-serif}
+header{background:#111827;color:#fff;padding:16px;position:sticky;top:0;z-index:10}
+h1{font-size:20px;margin:0 0 4px}.sub{font-size:12px;color:#cbd5e1}
+nav{display:flex;gap:7px;overflow:auto;padding:10px;background:#fff;position:sticky;top:69px;z-index:9;border-bottom:1px solid #ddd}
+nav button{white-space:nowrap;border:0;padding:10px 14px;border-radius:20px;background:#e5e7eb}
+nav button.active{background:#111827;color:#fff}
+main{max-width:900px;margin:auto;padding:12px}.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 5px #0001}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:12px;font-weight:bold;color:#374151;margin:4px 0}
+input,select,textarea{width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px;font-size:15px;background:#fff}
+button{cursor:pointer}.primary{background:#111827;color:#fff;border:0;border-radius:10px;padding:12px;font-weight:bold}
+.full{width:100%;margin-top:10px}.secondary{background:#e5e7eb;border:0;border-radius:9px;padding:10px}.danger{background:#fee2e2;color:#991b1b;border:0;border-radius:9px;padding:9px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}@media(max-width:650px){.kpis{grid-template-columns:1fr 1fr}}
+.kpi{background:#f9fafb;border:1px solid #e5e7eb;border-radius:11px;padding:11px;font-size:12px}.kpi b{display:block;font-size:18px;margin-top:4px}
+.bill{border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin:9px 0}.bill.overdue{border:2px solid #ef4444;background:#fff7f7}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}.muted{font-size:12px;color:#6b7280}
+.badge{padding:5px 8px;border-radius:20px;font-size:11px;font-weight:bold}.paid{background:#dcfce7;color:#166534}.pending{background:#fef3c7;color:#92400e}.over{background:#fee2e2;color:#991b1b}
+.party{border:1px solid #e5e7eb;border-radius:10px;padding:11px;margin:8px 0}.hidden{display:none}
+.note{font-size:12px;background:#eff6ff;color:#1e40af;border-radius:9px;padding:10px;margin-top:10px}
+.actions{display:flex;gap:7px;margin-top:10px}.actions button{flex:1}.amount{font-size:18px;font-weight:bold}
+.sig{border:1px dashed #9ca3af;border-radius:8px;padding:10px;color:#6b7280;margin-bottom:5px}
+.small{font-size:12px}
+</style>
+</head>
+<body>
+<header>
+<h1>Party Bill & Payment Tracker</h1>
+<div class="sub">Bill → Due Date → Payment → Outstanding</div>
+</header>
+<nav>
+<button class="tab active" data-tab="dashboard">Dashboard</button>
+<button class="tab" data-tab="add">+ Bill</button>
+<button class="tab" data-tab="all">All Bills</button>
+<button class="tab" data-tab="parties">Parties</button>
+</nav>
+
+<main>
+<section id="dashboard">
+<div class="card"><div class="kpis">
+<div class="kpi">Total Bills<b id="totalBills">0</b></div>
+<div class="kpi">Total Amount<b id="totalAmount">₹0</b></div>
+<div class="kpi">Total Paid<b id="totalPaid">₹0</b></div>
+<div class="kpi">Outstanding<b id="outstanding">₹0</b></div>
+</div></div>
+<div class="card"><h3>Party-wise Outstanding</h3><div id="partySummary"></div></div>
+<div class="card"><h3>🔴 Overdue Bills</h3><div id="overdue"></div></div>
+</section>
+
+<section id="add" class="hidden">
+<div class="card">
+<h3 id="formTitle">નવું Bill ઉમેરો</h3>
+<div class="grid">
+<div><label>Party Name</label><select id="party"></select></div>
+<div><label>Bill Date</label><input type="date" id="billDate"></div>
+<div><label>Invoice No.</label><input id="invoice" placeholder="Invoice No."></div>
+<div><label>Total Taka / Bill Amount (₹)</label><input type="number" id="amount" min="0" step="0.01" placeholder="0"></div>
+<div><label>Payment Condition</label><input id="terms" readonly></div>
+<div><label>Payment Due Date</label><input id="dueDate" readonly></div>
+</div>
+<div id="rule" class="note"></div>
+
+<h3 style="margin-top:18px">Payment</h3>
+<div class="grid">
+<div><label>Payment Date</label><input type="date" id="paymentDate"></div>
+<div><label>Paid Amount</label><input type="number" id="paidAmount" min="0" step="0.01" value="0"></div>
+</div>
+<div class="note">તમે આખું bill એકસાથે pay કરો છો, એટલે Payment Date નાખવાથી આખું bill Paid ગણાશે. Paid Amount automatic bill amount પર set થશે.</div>
+
+<h3 style="margin-top:18px">Signature</h3>
+<div class="sig">Signature માટે જગ્યા રાખવામાં આવી છે.</div>
+<textarea id="signature" rows="2" placeholder="Signature / નોંધ"></textarea>
+
+<div class="actions">
+<button class="primary" id="saveBtn">Save Bill</button>
+<button class="secondary" id="clearBtn">Clear</button>
+</div>
+</div>
+</section>
+
+<section id="all" class="hidden">
+<div class="card">
+<div id="partyGroups"></div>
+<div id="partyDetail" class="hidden">
+<div class="row" style="margin-bottom:12px">
+<button class="secondary" id="backParties">← Back</button>
+<h3 id="detailTitle" style="margin:0;flex:1;text-align:right"></h3>
+</div>
+<input id="search" placeholder="Invoice search..." style="margin-bottom:10px">
+<div id="billList"></div>
+</div>
+</div>
+</section>
+
+<section id="parties" class="hidden">
+<div class="card"><h3>Party Settings</h3><div id="partyList"></div>
+<div class="note"><b>Dhanurdhar Mill:</b> 1 થી 15 તારીખનું bill → એ જ monthની છેલ્લી તારીખ. 16 થી 20 તારીખનું bill → next monthની 1 તારીખ.</div>
+</div>
+</section>
+</main>
+
+<script>
+const PARTIES=[
+{name:"Gurukrupa Grey",terms:"60 Days",rule:"60 દિવસ"},
+{name:"Sunita Mill",terms:"20 Days",rule:"20 દિવસ"},
+{name:"Divya Mill",terms:"45 Days",rule:"45 દિવસ"},
+{name:"Dhanurdhar Mill",terms:"Special",rule:"1–15 → month end; 16–20 → next month 1st"}
+];
+let bills=JSON.parse(localStorage.getItem("party_bill_tracker_v2")||"[]");
+let editing=null;
+
+const $=id=>document.getElementById(id);
+const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
+function dateObj(s){return new Date(s+"T00:00:00")}
+function fmt(d){return d.toISOString().slice(0,10)}
+function addDays(s,n){let d=dateObj(s);d.setDate(d.getDate()+n);return fmt(d)}
+function monthEnd(s){let d=dateObj(s);return fmt(new Date(d.getFullYear(),d.getMonth()+1,0))}
+function nextFirst(s){let d=dateObj(s);return fmt(new Date(d.getFullYear(),d.getMonth()+1,1))}
+function dueDate(p,s){
+ if(!s)return "";
+ if(p==="Gurukrupa Grey")return addDays(s,60);
+ if(p==="Sunita Mill")return addDays(s,20);
+ if(p==="Divya Mill")return addDays(s,45);
+ const day=dateObj(s).getDate();
+ if(day>=1&&day<=15)return monthEnd(s);
+ if(day>=16&&day<=20)return nextFirst(s);
+ return monthEnd(s);
+}
+function status(b){
+ const bal=Number(b.amount)-Number(b.paid||0);
+ if(bal<=0)return ["Paid","paid"];
+ const today=new Date();today.setHours(0,0,0,0);
+ return dateObj(b.dueDate)<today?["Overdue","over"]:["Pending","pending"];
+}
+function persist(){localStorage.setItem("party_bill_tracker_v2",JSON.stringify(bills))}
+function populate(){
+ $("party").innerHTML=PARTIES.map(p=>`<option>${p.name}</option>`).join("");
+ $("partyList").innerHTML=PARTIES.map(p=>`<div class="party"><b>${p.name}</b><div class="muted">${p.rule}</div></div>`).join("");
+ updateMeta();
+}
+function updateMeta(){
+ const p=$("party").value,d=$("billDate").value,x=PARTIES.find(v=>v.name===p);
+ $("terms").value=x?.terms||"";
+ $("dueDate").value=dueDate(p,d);
+ $("rule").textContent=p==="Dhanurdhar Mill"
+ ?"Dhanurdhar: 1–15 bill → same month month-end; 16–20 bill → next month 1st."
+ :(x?`${p}: ${x.terms} from bill date.`:"");
+}
+function reset(){
+ editing=null;$("formTitle").textContent="નવું Bill ઉમેરો";$("saveBtn").textContent="Save Bill";
+ $("billDate").value=fmt(new Date());$("invoice").value="";$("amount").value="";
+ $("paymentDate").value="";$("paidAmount").value=0;$("signature").value="";updateMeta();
+}
+function card(b){
+ const [st,cl]=status(b), bal=Math.max(0,Number(b.amount)-Number(b.paid||0));
+ return `<div class="bill ${cl==="over"?"overdue":""}">
+ <div class="row"><b>${b.party}</b><span class="badge ${cl}">${cl==="over"?"🔴 ":""}${st}</span></div>
+ <div class="muted" style="margin-top:5px">Invoice No.: <b>${b.invoice||"-"}</b> • Bill Date: ${b.billDate}</div>
+ <div class="muted">Due Date: <b>${b.dueDate}</b> • Payment: ${b.paymentDate||"-"}</div>
+ <div class="row" style="margin-top:9px"><span>Bill: <b>${money(b.amount)}</b><br><span class="muted">Paid: ${money(b.paid||0)}</span></span><span class="amount">${money(bal)}</span></div>
+ <div class="actions"><button class="secondary" onclick="editBill('${b.id}')">Edit</button><button class="danger" onclick="deleteBill('${b.id}')">Delete</button></div>
+ </div>`;
+}
+function render(){
+ let total=bills.reduce((s,b)=>s+Number(b.amount||0),0),paid=bills.reduce((s,b)=>s+Number(b.paid||0),0);
+ $("totalBills").textContent=bills.length;$("totalAmount").textContent=money(total);$("totalPaid").textContent=money(paid);$("outstanding").textContent=money(total-paid);
+ $("partySummary").innerHTML=PARTIES.map(p=>{
+  const a=bills.filter(b=>b.party===p.name),t=a.reduce((s,b)=>s+Number(b.amount),0),q=a.reduce((s,b)=>s+Number(b.paid||0),0);
+  return `<div class="party" onclick="showTab('all');openParty('${p.name.replace(/'/g,"\\'")}')" style="cursor:pointer"><div class="row"><b>${p.name}</b><span>${a.length} bill</span></div><div class="muted">Total ${money(t)} • Paid ${money(q)}</div><div style="margin-top:5px"><b>Outstanding: ${money(t-q)}</b></div></div>`;
+ }).join("");
+ const o=bills.filter(b=>status(b)[0]==="Overdue");
+ $("overdue").innerHTML=o.length?o.map(card).join(""):`<div class="muted">કોઈ overdue bill નથી.</div>`;
+ renderAll();
+}
+let selectedParty=null;
+function renderAll(){
+ if(selectedParty){renderPartyDetail();return;}
+ $("partyGroups").classList.remove("hidden");
+ $("partyDetail").classList.add("hidden");
+ $("partyGroups").innerHTML=PARTIES.map(p=>{
+   const a=bills.filter(b=>b.party===p.name);
+   const total=a.reduce((x,b)=>x+Number(b.amount||0),0);
+   const paid=a.reduce((x,b)=>x+Number(b.paid||0),0);
+   const out=total-paid;
+   const overdue=a.filter(b=>status(b)[0]==="Overdue").length;
+   return `<div class="party" onclick="openParty('${p.name.replace(/'/g,"\\'")}')" style="padding:15px;cursor:pointer">
+     <div class="row">
+       <div><b style="font-size:18px">${p.name}</b><div class="muted">${a.length} bill${a.length===1?"":"s"} • ${p.terms==="Special"?"Special payment rule":p.terms}</div></div>
+       <span style="font-size:24px">›</span>
+     </div>
+     <div class="grid" style="margin-top:10px">
+       <div><span class="muted">Total Bill</span><br><b>${money(total)}</b></div>
+       <div><span class="muted">Outstanding</span><br><b>${money(out)}</b></div>
+     </div>
+     ${overdue?`<div class="muted" style="color:#991b1b;margin-top:7px">🔴 ${overdue} overdue bill${overdue===1?"":"s"}</div>`:""}
+   </div>`;
+ }).join("");
+}
+function openParty(name){
+ selectedParty=name;
+ $("partyGroups").classList.add("hidden");
+ $("partyDetail").classList.remove("hidden");
+ $("detailTitle").textContent=name;
+ $("search").value="";
+ renderPartyDetail();
+}
+function renderPartyDetail(){
+ const q=($("search").value||"").toLowerCase();
+ const a=bills.filter(b=>b.party===selectedParty && (b.invoice||"").toLowerCase().includes(q));
+ $("billList").innerHTML=a.length?a.map(card).join(""):`<div class="muted">આ partyનું કોઈ bill મળ્યું નથી.</div>`;
+}
+function editBill(id){
+ const b=bills.find(x=>x.id===id);if(!b)return;editing=id;
+ showTab("add");
+ $("formTitle").textContent="Bill Edit કરો";$("saveBtn").textContent="Update Bill";
+ $("party").value=b.party;$("billDate").value=b.billDate;$("invoice").value=b.invoice||"";
+ $("amount").value=b.amount;$("paymentDate").value=b.paymentDate||"";$("paidAmount").value=b.paid||0;$("signature").value=b.signature||"";updateMeta();
+}
+function deleteBill(id){if(confirm("આ bill delete કરવું છે?")){bills=bills.filter(b=>b.id!==id);persist();render()}}
+function showTab(id){
+ document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===id));
+ document.querySelectorAll("main>section").forEach(s=>s.classList.toggle("hidden",s.id!==id));
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+ showTab(b.dataset.tab);
+ if(b.dataset.tab==="add"&&!editing)reset();
+ if(b.dataset.tab==="all"){selectedParty=null;renderAll();}
+});
+$("party").onchange=updateMeta;$("billDate").onchange=updateMeta;
+$("search").oninput=()=>{if(selectedParty)renderPartyDetail();else renderAll()};
+$("backParties").onclick=()=>{selectedParty=null;renderAll()};
+$("clearBtn").onclick=reset;
+$("paymentDate").onchange=()=>{if($("paymentDate").value&&$("amount").value)$("paidAmount").value=$("amount").value};
+$("saveBtn").onclick=()=>{
+ const p=$("party").value,d=$("billDate").value,a=Number($("amount").value);
+ if(!p||!d||!a){alert("Party, Bill Date અને Amount જરૂરી છે.");return}
+ const payDate=$("paymentDate").value;
+ // Full-payment workflow: entering a payment date means full bill is paid.
+ const paid=payDate?a:0;
+ const obj={id:editing||String(Date.now()),party:p,billDate:d,invoice:$("invoice").value.trim(),amount:a,dueDate:dueDate(p,d),paymentDate:payDate,paid,signature:$("signature").value.trim()};
+ bills=editing?bills.map(b=>b.id===editing?obj:b):[...bills,obj];persist();render();
+ alert(editing?"Bill update થઈ ગયું.":"Bill save થઈ ગયું.");reset();showTab("dashboard");
+};
+populate();reset();render();
+</script>
+</body>
+</html>
